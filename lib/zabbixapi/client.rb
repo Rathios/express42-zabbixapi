@@ -70,6 +70,7 @@ class ZabbixApi
         @proxy_host = @proxy_uri.host
         @proxy_port = @proxy_uri.port
         @proxy_user, @proxy_pass = @proxy_uri.userinfo.split(/:/) if @proxy_uri.userinfo
+        @proxy_noproxy = ENV['no_proxy']
       end
       unless api_version =~ %r{^5.[0|2]\.\d+$}
         message = "Zabbix API version: #{api_version} is not supported by this version of zabbixapi"
@@ -111,7 +112,7 @@ class ZabbixApi
 
       http =
         if @proxy_uri
-          Net::HTTP.Proxy(@proxy_host, @proxy_port, @proxy_user, @proxy_pass).new(uri.host, uri.port)
+          Net::HTTP.new(uri.host, uri.port, @proxy_host, @proxy_port, @proxy_user, @proxy_pass, @proxy_noproxy)
         else
           Net::HTTP.new(uri.host, uri.port)
         end

@@ -129,14 +129,18 @@ describe 'ZabbixApi::Client' do
         }
       end
 
-      before { allow(ENV).to receive(:[]).with('http_proxy').and_return('https://username:password@www.cerner.com') }
+      before do
+        allow(ENV).to receive(:[]).with('http_proxy').and_return('https://proxy_username:proxy_password@proxy.cerner.com:3128')
+        allow(ENV).to receive(:[]).with('no_proxy').and_return('127.0.0.1,::1')
+      end
 
       it 'sets proxy class variables' do
         expect(subject.instance_variable_get(:@proxy_uri)).to be_kind_of(URI::HTTPS)
-        expect(subject.instance_variable_get(:@proxy_host)).to eq('www.cerner.com')
-        expect(subject.instance_variable_get(:@proxy_port)).to eq(443)
-        expect(subject.instance_variable_get(:@proxy_user)).to eq('username')
-        expect(subject.instance_variable_get(:@proxy_pass)).to eq('password')
+        expect(subject.instance_variable_get(:@proxy_host)).to eq('proxy.cerner.com')
+        expect(subject.instance_variable_get(:@proxy_port)).to eq(3128)
+        expect(subject.instance_variable_get(:@proxy_user)).to eq('proxy_username')
+        expect(subject.instance_variable_get(:@proxy_pass)).to eq('proxy_password')
+        expect(subject.instance_variable_get(:@proxy_noproxy)).to eq('127.0.0.1,::1')
       end
 
       it 'sets auth_hash' do
@@ -151,14 +155,18 @@ describe 'ZabbixApi::Client' do
         }
       end
 
-      before { allow(ENV).to receive(:[]).with('http_proxy').and_return('https://username:password@www.cerner.com') }
+      before do
+        allow(ENV).to receive(:[]).with('http_proxy').and_return('https://proxy_username:proxy_password@proxy.cerner.com:3128')
+        allow(ENV).to receive(:[]).with('no_proxy').and_return('127.0.0.1,::1')
+      end
 
       it 'does not proxy class variables' do
         expect(subject.instance_variable_get(:@proxy_uri)).not_to be_kind_of(URI::HTTPS)
-        expect(subject.instance_variable_get(:@proxy_host)).not_to eq('www.cerner.com')
-        expect(subject.instance_variable_get(:@proxy_port)).not_to eq(443)
-        expect(subject.instance_variable_get(:@proxy_user)).not_to eq('username')
-        expect(subject.instance_variable_get(:@proxy_pass)).not_to eq('password')
+        expect(subject.instance_variable_get(:@proxy_host)).not_to eq('proxy.cerner.com')
+        expect(subject.instance_variable_get(:@proxy_port)).not_to eq(3128)
+        expect(subject.instance_variable_get(:@proxy_user)).not_to eq('proxy_username')
+        expect(subject.instance_variable_get(:@proxy_pass)).not_to eq('proxy_password')
+        expect(subject.instance_variable_get(:@proxy_noproxy)).not_to eq('127.0.0.1,::1')
       end
 
       it 'sets auth_hash' do
@@ -173,14 +181,18 @@ describe 'ZabbixApi::Client' do
         }
       end
 
-      before { allow(ENV).to receive(:[]).with('http_proxy').and_return(nil) }
+      before do
+        allow(ENV).to receive(:[]).with('http_proxy').and_return(nil)
+        allow(ENV).to receive(:[]).with('no_proxy').and_return(nil)
+      end
 
       it 'does not proxy class variables' do
         expect(subject.instance_variable_get(:@proxy_uri)).to be_nil
-        expect(subject.instance_variable_get(:@proxy_host)).not_to eq('www.cerner.com')
-        expect(subject.instance_variable_get(:@proxy_port)).not_to eq(443)
-        expect(subject.instance_variable_get(:@proxy_user)).not_to eq('username')
-        expect(subject.instance_variable_get(:@proxy_pass)).not_to eq('password')
+        expect(subject.instance_variable_get(:@proxy_host)).not_to eq('proxy.cerner.com')
+        expect(subject.instance_variable_get(:@proxy_port)).not_to eq(3128)
+        expect(subject.instance_variable_get(:@proxy_user)).not_to eq('proxy_username')
+        expect(subject.instance_variable_get(:@proxy_pass)).not_to eq('proxy_password')
+        expect(subject.instance_variable_get(:@proxy_noproxy)).not_to eq('127.0.0.1,::1')
       end
 
       it 'sets auth_hash' do
@@ -191,7 +203,10 @@ describe 'ZabbixApi::Client' do
     context 'when major api_version is not supported' do
       let(:api_version) { 'not_a_valid_version' }
 
-      before { allow(ENV).to receive(:[]).with('http_proxy').and_return(nil) }
+      before do
+        allow(ENV).to receive(:[]).with('http_proxy').and_return(nil)
+        allow(ENV).to receive(:[]).with('no_proxy').and_return(nil)
+      end
 
       it 'raises ApiError' do
         expect { subject }.to raise_error(ZabbixApi::ApiError, "Zabbix API version: #{api_version} is not supported by this version of zabbixapi")
@@ -206,7 +221,10 @@ describe 'ZabbixApi::Client' do
       end
       let(:api_version) { 'not_a_valid_version' }
 
-      before { allow(ENV).to receive(:[]).with('http_proxy').and_return(nil) }
+      before do
+        allow(ENV).to receive(:[]).with('http_proxy').and_return(nil)
+        allow(ENV).to receive(:[]).with('no_proxy').and_return(nil)
+      end
 
       it 'sets auth_hash' do
         expect(subject.instance_variable_get(:@auth_hash)).to eq('auth')
@@ -279,7 +297,6 @@ describe 'ZabbixApi::Client' do
 
     let(:mock_post) { double }
     let(:http_mock) { double }
-    let(:http_proxy) { double }
     let(:timeout) { 60 }
     let(:response_code) { '200' }
     let(:response) { instance_double('HTTP::Response', code: response_code, body: { test: 'testbody' }) }
@@ -290,25 +307,25 @@ describe 'ZabbixApi::Client' do
       }
     end
 
-    let(:body) { 'testbody ' }
+    let(:body) { 'testbody' }
 
     before do
       allow_any_instance_of(ZabbixApi::Client).to receive(:api_version).and_return('5.2.2')
       allow_any_instance_of(ZabbixApi::Client).to receive(:auth).and_return('auth')
-      allow(Net::HTTP).to receive(:Proxy).with(
+      allow(Net::HTTP).to receive(:new).with(
         'www.cerner.com',
         443,
-        'username',
-        'password'
-      ).and_return(http_proxy)
-
-      allow(http_proxy).to receive(:new).with(
-        'www.cerner.com',
-        443
+        'proxy.cerner.com',
+        3128,
+        'proxy_username',
+        'proxy_password',
+        '127.0.0.1,::1'
       ).and_return(http_mock)
 
       allow(ENV).to receive(:[])
-        .with('http_proxy').and_return('https://username:password@www.cerner.com')
+        .with('http_proxy').and_return('https://proxy_username:proxy_password@proxy.cerner.com:3128')
+      allow(ENV).to receive(:[])
+        .with('no_proxy').and_return('127.0.0.1,::1')
       allow(Net::HTTP::Post).to receive(:new).with('/').and_return(mock_post)
       allow(mock_post).to receive(:basic_auth).with('username', 'password')
       allow(mock_post).to receive(:add_field).with('Content-Type', 'application/json-rpc')
@@ -372,11 +389,14 @@ describe 'ZabbixApi::Client' do
       end
 
       it 'create http object without proxy' do
-        expect(Net::HTTP).not_to receive(:Proxy).with(
+        expect(Net::HTTP).not_to receive(:new).with(
           'www.cerner.com',
           443,
-          'username',
-          'password'
+          'proxy.cerner.com',
+          3128,
+          'proxy_username',
+          'proxy_password',
+          '127.0.0.1,::1'
         )
         subject
       end
